@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#080c16">
+<title>Outgrow — Endless Serpent</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #f1f5ff;
+    --muted: #8995ad;
+    --aqua: #76f6d3;
+    --violet: #a98bff;
+    --panel: rgba(13, 19, 34, .76);
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #080c16; }
+  body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; opacity: .15; z-index: 1;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.17'/%3E%3C/svg%3E");
+    mix-blend-mode: screen;
+  }
+  .topbar {
+    position: fixed; z-index: 2; left: 28px; right: 28px; top: 22px;
+    display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; font-size: 13px; letter-spacing: .19em; font-weight: 800; }
+  .brand-mark {
+    width: 28px; height: 28px; border: 1px solid rgba(118,246,211,.65); border-radius: 50%;
+    display: grid; place-items: center; color: var(--aqua); font-size: 16px; box-shadow: 0 0 24px rgba(118,246,211,.15);
+  }
+  .brand small { display: block; color: #73809a; font-size: 9px; letter-spacing: .2em; margin-top: 3px; font-weight: 600; }
+  .top-stats { display: flex; gap: 9px; }
+  .stat {
+    min-width: 92px; padding: 10px 13px; border: 1px solid rgba(172,193,232,.12); border-radius: 12px;
+    background: rgba(10,15,27,.58); backdrop-filter: blur(14px);
+  }
+  .stat label { display: block; color: #8290aa; font-size: 9px; text-transform: uppercase; letter-spacing: .15em; }
+  .stat strong { display: block; margin-top: 4px; font-size: 16px; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .hud-bottom {
+    position: fixed; z-index: 2; left: 28px; right: 28px; bottom: 22px; display: flex;
+    justify-content: space-between; align-items: flex-end; pointer-events: none;
+  }
+  .growth-card, .hint {
+    border: 1px solid rgba(172,193,232,.12); border-radius: 13px; background: rgba(10,15,27,.64);
+    backdrop-filter: blur(14px);
+  }
+  .growth-card { width: 228px; padding: 12px 14px; }
+  .growth-head { display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #aab5c9; letter-spacing: .08em; }
+  .growth-head b { color: var(--aqua); font-weight: 700; }
+  .meter { height: 3px; background: rgba(255,255,255,.09); border-radius: 9px; margin-top: 10px; overflow: hidden; }
+  .meter span { display: block; height: 100%; width: 40%; border-radius: 9px; background: linear-gradient(90deg, #55dfc6, #b1f8dc); box-shadow: 0 0 12px #55dfc680; }
+  .hint { padding: 10px 13px; color: #8e9ab0; font-size: 11px; }
+  .hint b { color: #dbe4f4; font-weight: 650; }
+  .overlay {
+    position: fixed; inset: 0; z-index: 3; display: grid; place-items: center; padding: 24px;
+    background: radial-gradient(ellipse at center, rgba(8,12,22,.26), rgba(8,12,22,.77));
+    transition: opacity .25s ease, visibility .25s ease;
+  }
+  .overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .modal {
+    width: min(460px, 100%); text-align: center; padding: 34px 36px 30px;
+    border: 1px solid rgba(185,207,246,.17); border-radius: 23px;
+    background: linear-gradient(145deg, rgba(19,27,46,.93), rgba(11,16,29,.94));
+    box-shadow: 0 28px 100px #0009, inset 0 1px rgba(255,255,255,.06);
+    backdrop-filter: blur(22px); animation: rise .5s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .eyebrow { color: var(--aqua); font-size: 10px; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; }
+  h1 { font-size: clamp(38px, 8vw, 57px); line-height: .98; letter-spacing: -.065em; margin: 16px 0 14px; }
+  h1 span { color: transparent; background: linear-gradient(100deg, #9cffe2, #a9b5ff 80%); background-clip: text; -webkit-background-clip: text; }
+  .description { max-width: 330px; margin: 0 auto; color: #a1aec3; font-size: 14px; line-height: 1.65; }
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 24px 0; text-align: left; }
+  .rule { padding: 11px 12px; border-radius: 11px; background: rgba(255,255,255,.035); color: #9ba8be; font-size: 11px; line-height: 1.45; }
+  .rule b { display: block; color: #e6edf9; font-size: 11px; margin-bottom: 3px; }
+  .key {
+    display: inline-block; padding: 2px 6px; border: 1px solid rgba(210,225,250,.24); border-radius: 5px;
+    background: rgba(255,255,255,.07); color: #e9f0ff; font-size: 10px; font-weight: 700;
+  }
+  button {
+    appearance: none; border: 0; width: 100%; padding: 14px 18px; border-radius: 11px; cursor: pointer;
+    background: linear-gradient(100deg, #70ebd0, #9cf1dc); color: #08221c; font: inherit;
+    font-weight: 850; font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    box-shadow: 0 7px 28px rgba(95,237,205,.18); transition: transform .15s, filter .15s;
+  }
+  button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  button:active { transform: translateY(1px); }
+  .footnote { margin-top: 14px; color: #6e7b94; font-size: 10px; }
+  .mobile-hint { display: none; }
+  @media (max-width: 640px) {
+    .topbar { top: 13px; left: 13px; right: 13px; }
+    .brand { font-size: 11px; gap: 7px; }
+    .brand-mark { width: 24px; height: 24px; }
+    .top-stats { gap: 5px; }
+    .stat { min-width: 68px; padding: 8px 9px; border-radius: 9px; }
+    .stat label { font-size: 8px; }
+    .stat strong { font-size: 13px; }
+    .hud-bottom { left: 13px; right: 13px; bottom: 13px; }
+    .growth-card { width: 190px; padding: 10px 11px; }
+    .hint { display: none; }
+    .modal { padding: 28px 22px 23px; }
+    .mobile-hint { display: inline; }
+    .desktop-hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Outgrow snake game"></canvas>
+<div class="grain"></div>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">∞</span><span>OUTGROW<small>ENDLESS SERPENT</small></span></div>
+  <div class="top-stats">
+    <div class="stat"><label>Length</label><strong id="length">—</strong></div>
+    <div class="stat"><label>Orbs</label><strong id="orbs">—</strong></div>
+    <div class="stat"><label>Time</label><strong id="time">—</strong></div>
+  </div>
+</header>
+<div class="hud-bottom">
+  <div class="growth-card">
+    <div class="growth-head"><span>WORLD EXPANSION</span><b id="world-size">+0 / sec</b></div>
+    <div class="meter"><span id="world-meter"></span></div>
+  </div>
+  <div class="hint"><b>Move</b> mouse / touch &nbsp; <b>Boost</b> <span class="key">SPACE</span> or click</div>
+</div>
+<div class="overlay" id="overlay">
+  <section class="modal">
+    <div class="eyebrow" id="eyebrow">A world with no finish line</div>
+    <h1 id="title">OUT<span>GROW</span></h1>
+    <p class="description" id="description">The arena keeps getting bigger. So do you. Gather light, outlast the rivals, and see how far your own growth can take you.</p>
+    <div class="rules">
+      <div class="rule"><b>✳ Collect orbs</b>Each one adds a burst of length and points.</div>
+      <div class="rule"><b>↗ Keep moving</b>Your body and the world both expand every second.</div>
+      <div class="rule"><b>◎ Avoid collisions</b>Don't let your head touch another serpent.</div>
+      <div class="rule"><b><span class="desktop-hint">Mouse to steer</span><span class="mobile-hint">Drag to steer</span></b>Hold <span class="key">SPACE</span> or tap to boost.</div>
+    </div>
+    <button id="start">Start growing</button>
+    <div class="footnote">The perimeter recedes every second.</div>
+  </section>
+</div>
+<script>
+(() => {
+  "use strict";
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const ui = {
+    overlay: document.getElementById("overlay"),
+    start: document.getElementById("start"),
+    eyebrow: document.getElementById("eyebrow"),
+    title: document.getElementById("title"),
+    description: document.getElementById("description"),
+    length: document.getElementById("length"),
+    orbs: document.getElementById("orbs"),
+    time: document.getElementById("time"),
+    worldSize: document.getElementById("world-size"),
+    worldMeter: document.getElementById("world-meter")
+  };
+  const TAU = Math.PI * 2;
+  const COLORS = ["#ff8b9f", "#b99aff", "#ffc56f", "#70b6ff", "#ff8cd6", "#b8ed76", "#ff9970"];
+  const WORLD_START = 720;
+  const WORLD_RATE = 112;
+  const AUTO_GROWTH = 12.5; // world units of body length per second
+  const SEGMENT_GAP = 13;
+  let w = 0, h = 0, dpr = 1;
+  let state = "ready", last = 0, elapsed = 0, score = 0, collected = 0;
+  let player, bots = [], foods = [], particles = [];
+  let pointer = { x: 0, y: 0, active: false, boost: false };
+  let camera = { x: 0, y: 0 };
+  let frame = 0;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = window.innerWidth; h = window.innerHeight;
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const angleDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
+  const arenaRadius = () => WORLD_START + elapsed * WORLD_RATE;
+
+  function makeSnake(x, y, angle, color, isPlayer, name) {
+    const points = [];
+    const initial = isPlayer ? 170 : 125;
+    for (let i = 0; i <= initial; i += 4) {
+      points.push({ x: x - Math.cos(angle) * i, y: y - Math.sin(angle) * i });
+    }
+    return {
+      x, y, angle, color, isPlayer, name, points,
+      length: isPlayer ? 155 : rand(110, 165),
+      speed: isPlayer ? 205 : rand(142, 174),
+      wander: rand(-1, 1),
+      turnTimer: rand(.3, 1.4),
+      alive: true
+    };
+  }
+  function randomPointAround(cx, cy, min, max) {
+    const a = rand(0, TAU), r = Math.sqrt(rand(min * min, max * max));
+    return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r };
+  }
+  function spawnFood(x, y, value = 1) {
+    foods.push({ x, y, r: value > 1 ? 6 : rand(3, 5), value, hue: rand(0, 360), phase: rand(0, TAU) });
+  }
+  function setup() {
+    elapsed = 0; score = 0; collected = 0; foods = []; particles = [];
+    player = makeSnake(0, 0, 0, "#76f6d3", true, "YOU");
+    bots = [];
+    for (let i = 0; i < 6; i++) {
+      const p = randomPointAround(0, 0, 260, 520);
+      bots.push(makeSnake(p.x, p.y, Math.atan2(-p.y, -p.x) + rand(-1, 1), COLORS[i % COLORS.length], false, `RIVAL ${i + 1}`));
+    }
+    for (let i = 0; i < 100; i++) {
+      const p = randomPointAround(0, 0, 80, 680);
+      spawnFood(p.x, p.y, Math.random() < .09 ? 2 : 1);
+    }
+    camera.x = 0; camera.y = 0;
+    updateHud();
+  }
+  function startGame() {
+    setup();
+    state = "playing";
+    ui.overlay.classList.add("hidden");
+    pointer.x = w * .78; pointer.y = h * .5;
+    last = performance.now();
+  }
+  function endGame() {
+    if (state !== "playing") return;
+    state = "over";
+    ui.eyebrow.textContent = "The world keeps growing";
+    ui.title.innerHTML = 'RUN <span>ENDED</span>';
+    ui.description.innerHTML = `You grew to <b style="color:#76f6d3">${Math.floor(player.length)}</b> length and gathered <b style="color:#76f6d3">${collected}</b> orbs in ${formatTime(elapsed)}. The arena expanded to ${Math.floor(arenaRadius())} units.`;
+    ui.start.textContent = "Grow again";
+    ui.overlay.classList.remove("hidden");
+  }
+  function formatTime(t) {
+    const m = Math.floor(t / 60), s = Math.floor(t % 60);
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+  function updateHud() {
+    ui.length.textContent = state === "ready" ? "—" : Math.floor(player.length).toLocaleString();
+    ui.orbs.textContent = state === "ready" ? "—" : String(collected);
+    ui.time.textContent = state === "ready" ? "—" : formatTime(elapsed);
+    ui.worldSize.textContent = `+${WORLD_RATE} / sec`;
+    ui.worldMeter.style.width = `${Math.min(100, 25 + (elapsed % 22) / 22 * 75)}%`;
+  }
+  function addTrail(snake, dt) {
+    const step = Math.max(3, snake.speed * dt * .42);
+    const p = snake.points[0];
+    const dx = snake.x - p.x, dy = snake.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d >= step) {
+      const count = Math.floor(d / step);
+      for (let i = 1; i <= count; i++) {
+        const f = i / count;
+        snake.points.unshift({ x: p.x + dx * f, y: p.y + dy * f });
+      }
+    }
+    const maxDistance = snake.length + 200;
+    let traveled = 0, keep = 1;
+    for (; keep < snake.points.length; keep++) {
+      const a = snake.points[keep - 1], b = snake.points[keep];
+      traveled += Math.hypot(a.x - b.x, a.y - b.y);
+      if (traveled > maxDistance) break;
+    }
+    snake.points.length = keep;
+  }
+  function steer(snake, desired, dt, boost = false) {
+    const maxTurn = (snake.isPlayer ? 2.7 : 1.65) * dt;
+    snake.angle += clamp(angleDiff(snake.angle, desired), -maxTurn, maxTurn);
+    const speed = snake.speed * (boost ? 1.48 : 1);
+    snake.x += Math.cos(snake.angle) * speed * dt;
+    snake.y += Math.sin(snake.angle) * speed * dt;
+    addTrail(snake, dt);
+  }
+  function updateBot(bot, dt) {
+    if (!bot.alive) return;
+    bot.turnTimer -= dt;
+    if (bot.turnTimer <= 0) {
+      bot.turnTimer = rand(.45, 1.6);
+      bot.wander = rand(-1.15, 1.15);
+    }
+    let target = Math.atan2(bot.y, bot.x) + Math.PI + bot.wander;
+    // Drift back toward the interior before reaching the growing edge.
+    const radius = Math.hypot(bot.x, bot.y);
+    if (radius > arenaRadius() - 190) target = Math.atan2(-bot.y, -bot.x);
+    let nearest = null, best = 270 * 270;
+    for (const food of foods) {
+      const d = dist2(bot, food);
+      if (d < best) { best = d; nearest = food; }
+    }
+    if (nearest && best < 270 * 270) {
+      const foodAngle = Math.atan2(nearest.y - bot.y, nearest.x - bot.x);
+      target += angleDiff(target, foodAngle) * .65;
+    }
+    steer(bot, target, dt);
+  }
+  function trailPoint(snake, distance) {
+    let covered = 0;
+    for (let i = 1; i < snake.points.length; i++) {
+      const a = snake.points[i - 1], b = snake.points[i];
+      const seg = Math.hypot(a.x - b.x, a.y - b.y);
+      covered += seg;
+      if (covered >= distance) return b;
+    }
+    return snake.points[snake.points.length - 1] || snake;
+  }
+  function dropFood(snake, count = 12) {
+    for (let i = 0; i < count; i++) {
+      const p = trailPoint(snake, rand(0, Math.max(20, snake.length)));
+      spawnFood(p.x + rand(-16, 16), p.y + rand(-16, 16), 2);
+    }
+  }
+  function burst(x, y, color, amount = 8) {
+    for (let i = 0; i < amount; i++) {
+      const a = rand(0, TAU), speed = rand(30, 125);
+      particles.push({ x, y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, life: rand(.25, .6), max: .6, color, r: rand(1, 3) });
+    }
+  }
+  function update(dt) {
+    elapsed += dt;
+    const desired = Math.atan2(pointer.y - h / 2, pointer.x - w / 2);
+    const boosted = pointer.boost;
+    steer(player, desired, dt, boosted);
+    player.length += AUTO_GROWTH * dt * (boosted ? .58 : 1);
+    for (const bot of bots) {
+      if (!bot.alive) continue;
+      bot.length += 2.1 * dt;
+      updateBot(bot, dt);
+    }
+    camera.x += (player.x - camera.x) * Math.min(1, dt * 5);
+    camera.y += (player.y - camera.y) * Math.min(1, dt * 5);
+
+    // Eat ambient light.
+    for (let i = foods.length - 1; i >= 0; i--) {
+      const food = foods[i];
+      if (dist2(player, food) < (food.r + 13) ** 2) {
+        foods.splice(i, 1);
+        collected++;
+        score += food.value * 10;
+        player.length += food.value * 24;
+        burst(food.x, food.y, "#bffff0", 7);
+      }
+    }
+    // Rivals collect nearby orbs.
+    for (const bot of bots) {
+      if (!bot.alive) continue;
+      for (let i = foods.length - 1; i >= 0; i--) {
+        if (dist2(bot, foods[i]) < (foods[i].r + 12) ** 2) {
+          bot.length += foods[i].value * 18;
+          foods.splice(i, 1);
+          break;
+        }
+      }
+    }
+    const world = arenaRadius();
+    for (const bot of bots) {
+      if (!bot.alive) continue;
+      if (Math.hypot(bot.x, bot.y) > world - 24) {
+        bot.alive = false; dropFood(bot, 15); burst(bot.x, bot.y, bot.color, 18);
+      }
+    }
+    // A snake head colliding with a rival's body ends the run.
+    for (const bot of bots) {
+      if (!bot.alive) continue;
+      if (Math.hypot(player.x - bot.x, player.y - bot.y) < 23) { endGame(); break; }
+      for (let j = 5; j < bot.points.length; j += 2) {
+        if (dist2(player, bot.points[j]) < 19 * 19) {
+          bot.alive = false; dropFood(bot, 15); burst(bot.x, bot.y, bot.color, 18);
+          break;
+        }
+      }
+    }
+    // Self-collision, skipping the short section behind the head.
+    if (state === "playing") {
+      let distFromHead = 0;
+      for (let i = 1; i < player.points.length; i += 2) {
+        const p = player.points[i], prev = player.points[Math.max(0, i - 1)];
+        distFromHead += Math.hypot(p.x - prev.x, p.y - prev.y);
+        if (distFromHead > 56 && dist2(player, p) < 17 * 17) { endGame(); break; }
+      }
+    }
+    if (Math.hypot(player.x, player.y) > world - 18) endGame();
+
+    // Maintain a small, local field of food so the expanding world never feels empty.
+    while (foods.length < 115) {
+      const p = randomPointAround(player.x, player.y, 250, Math.min(1000, world * .75));
+      spawnFood(p.x, p.y, Math.random() < .08 ? 2 : 1);
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= .96; p.vy *= .96;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    if ((frame++ % 8) === 0) updateHud();
+  }
+  function screenPoint(p) { return { x: p.x - camera.x + w / 2, y: p.y - camera.y + h / 2 }; }
+  function drawBackground(time) {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, "#0b1120"); g.addColorStop(.48, "#090e19"); g.addColorStop(1, "#101026");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    // A drifting star field with a camera-anchored grid that suggests limitless space.
+    const grid = 78;
+    const ox = ((-camera.x % grid) + grid) % grid, oy = ((-camera.y % grid) + grid) % grid;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(140,165,208,.045)";
+    ctx.beginPath();
+    for (let x = ox; x < w; x += grid) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = oy; y < h; y += grid) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+    ctx.stroke();
+    for (let i = 0; i < 90; i++) {
+      const sx = ((i * 197.37 - camera.x * .12) % (w + 40) + w + 40) % (w + 40) - 20;
+      const sy = ((i * 113.91 - camera.y * .12) % (h + 40) + h + 40) % (h + 40) - 20;
+      const twinkle = .25 + .55 * (Math.sin(time * .001 + i * 2.4) + 1) / 2;
+      ctx.fillStyle = `rgba(192,218,255,${twinkle})`;
+      ctx.fillRect(sx, sy, i % 9 === 0 ? 2 : 1, i % 9 === 0 ? 2 : 1);
+    }
+    // The luminous perimeter recedes at a constant rate as the world expands.
+    const radius = arenaRadius();
+    const center = screenPoint({ x: 0, y: 0 });
+    const r = radius;
+    const fade = ctx.createRadialGradient(center.x, center.y, Math.max(0, r - 110), center.x, center.y, r + 65);
+    fade.addColorStop(0, "rgba(0,0,0,0)");
+    fade.addColorStop(.78, "rgba(7,10,19,.04)");
+    fade.addColorStop(1, "rgba(5,8,16,.62)");
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, w, h);
+    ctx.beginPath(); ctx.arc(center.x, center.y, r, 0, TAU);
+    ctx.strokeStyle = "rgba(126,155,231,.18)"; ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 12]); ctx.stroke(); ctx.setLineDash([]);
+    const halo = ctx.createRadialGradient(center.x, center.y, r - 4, center.x, center.y, r + 15);
+    halo.addColorStop(0, "rgba(135,159,255,0)");
+    halo.addColorStop(.6, "rgba(135,159,255,.07)");
+    halo.addColorStop(1, "rgba(135,159,255,0)");
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(center.x, center.y, r + 15, 0, TAU); ctx.fill();
+  }
+  function drawFood(food, time) {
+    const p = screenPoint(food);
+    if (p.x < -25 || p.x > w + 25 || p.y < -25 || p.y > h + 25) return;
+    const pulse = .82 + .18 * Math.sin(time * .004 + food.phase);
+    const r = food.r * pulse;
+    ctx.save();
+    ctx.shadowColor = `hsl(${food.hue}, 95%, 70%)`; ctx.shadowBlur = food.value > 1 ? 18 : 11;
+    ctx.fillStyle = `hsl(${food.hue}, 88%, 72%)`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0; ctx.globalAlpha = .65;
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(p.x - r * .25, p.y - r * .3, r * .28, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  function drawSnake(snake, time) {
+    if (!snake.alive || snake.points.length < 2) return;
+    const visible = Math.ceil((snake.length + 30) / 4);
+    const points = snake.points.slice(0, visible).map(screenPoint);
+    if (points.length < 2) return;
+    const width = snake.isPlayer ? 15 : 12.5;
+    ctx.save();
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = width + 5;
+    ctx.beginPath(); ctx.moveTo(points[0].x + 2, points[0].y + 4);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x + 2, points[i].y + 4);
+    ctx.stroke();
+    ctx.shadowColor = snake.color; ctx.shadowBlur = snake.isPlayer ? 17 : 10;
+    ctx.strokeStyle = snake.color; ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke(); ctx.shadowBlur = 0;
+    // A thin highlight running along the upper edge gives the body volume.
+    ctx.globalAlpha = .42; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(points[0].x - 1, points[0].y - 2);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x - 1, points[i].y - 2);
+    ctx.stroke(); ctx.globalAlpha = 1;
+    const head = points[0];
+    ctx.shadowColor = snake.color; ctx.shadowBlur = 18;
+    ctx.fillStyle = snake.color; ctx.beginPath(); ctx.arc(head.x, head.y, width * .7, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+    // Eyes point in the current heading.
+    const ex = Math.cos(snake.angle), ey = Math.sin(snake.angle), px = -ey, py = ex;
+    for (const side of [-1, 1]) {
+      const x = head.x + ex * 4 + px * side * 4.1, y = head.y + ey * 4 + py * side * 4.1;
+      ctx.fillStyle = "#f8fffd"; ctx.beginPath(); ctx.arc(x, y, 2.7, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#102027"; ctx.beginPath(); ctx.arc(x + ex * .8, y + ey * .8, 1.3, 0, TAU); ctx.fill();
+    }
+    if (!snake.isPlayer && Math.hypot(snake.x - camera.x, snake.y - camera.y) < Math.max(w, h) * .6) {
+      ctx.font = "600 9px Inter, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "rgba(220,228,245,.55)";
+      ctx.fillText(snake.name, head.x, head.y - 17);
+    }
+    ctx.restore();
+  }
+  function draw(time) {
+    drawBackground(time);
+    for (const food of foods) drawFood(food, time);
+    for (const p of particles) {
+      const s = screenPoint(p); ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(s.x, s.y, p.r, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (const bot of bots) drawSnake(bot, time);
+    if (player) drawSnake(player, time);
+    // Subtle direction pointer.
+    if (state === "playing" && pointer.active && w > 640) {
+      const dx = pointer.x - w / 2, dy = pointer.y - h / 2;
+      const len = Math.hypot(dx, dy), x = w / 2 + dx / len * 44, y = h / 2 + dy / len * 44;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, TAU); ctx.fillStyle = "rgba(196,255,238,.45)"; ctx.fill();
+    }
+  }
+  function loop(now) {
+    const dt = Math.min(.035, Math.max(0, (now - last) / 1000));
+    last = now;
+    if (state === "playing") update(dt);
+    draw(now);
+    requestAnimationFrame(loop);
+  }
+  function steerPointer(e) {
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = e.clientX - rect.left; pointer.y = e.clientY - rect.top; pointer.active = true;
+  }
+  canvas.addEventListener("pointermove", steerPointer);
+  canvas.addEventListener("pointerdown", e => { steerPointer(e); pointer.boost = true; });
+  window.addEventListener("pointerup", () => { pointer.boost = false; });
+  window.addEventListener("pointercancel", () => { pointer.boost = false; });
+  window.addEventListener("keydown", e => {
+    if (e.code === "Space") { e.preventDefault(); pointer.boost = true; }
+    if ((e.code === "Enter" || e.code === "NumpadEnter") && state !== "playing") startGame();
+  });
+  window.addEventListener("keyup", e => { if (e.code === "Space") pointer.boost = false; });
+  window.addEventListener("blur", () => { pointer.boost = false; });
+  ui.start.addEventListener("click", startGame);
+  setup();
+  requestAnimationFrame(now => { last = now; loop(now); });
+})();
+</script>
+</body>
+</html>
